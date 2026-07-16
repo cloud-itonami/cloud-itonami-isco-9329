@@ -1,0 +1,155 @@
+(ns manufacturing-labour.governor-test
+  "Governor tests call ONLY the public API of `manufacturing-labour.governor`
+  (`check`) and `manufacturing-labour.store` (`create-store`,
+  `register-practitioner!`) — never a private var directly."
+  (:require [clojure.test :refer [deftest is testing]]
+            [manufacturing-labour.governor :as gov]
+            [manufacturing-labour.store :as store]))
+
+(defn- registered-store []
+  (-> (store/create-store)
+      (store/register-practitioner! "prac-001" {:name "J. Rivera" :status :active})))
+
+(deftest test-hard-violation-unregistered-practitioner
+  (testing "Unregistered practitioner is a hard violation"
+    (let [test-store (store/create-store)
+          request {:practitioner-id "unknown-prac"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.9 :hours 8}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (false? (:ok? verdict)))
+      (is (some #(= :no-practitioner (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-wrong-effect
+  (testing "Non-:propose effect is a hard violation (no direct actuation)"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :execute :confidence 0.9 :hours 8}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :no-actuation (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-spec-basis-unknown-op
+  (testing "An :unknown op falls outside the closed proposal vocabulary (spec-basis)"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :unknown :effect :propose :confidence 0.9}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :spec-basis (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-forbidden-op-operate-machinery
+  (testing "Directly operating manufacturing machinery is permanently forbidden"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :operate-machinery :effect :propose :confidence 0.99}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :scope-boundary (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-forbidden-op-operate-equipment
+  (testing "Directly operating manufacturing equipment is permanently forbidden"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :operate-equipment :effect :propose :confidence 0.99}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :scope-boundary (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-forbidden-op-classify-employment
+  (testing "Making a payroll/employment-classification determination is permanently forbidden"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :classify-employment :effect :propose :confidence 0.99}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :scope-boundary (:rule %)) (:violations verdict))))))
+
+(deftest test-hard-violation-forbidden-op-override-safety-briefing
+  (testing "Overriding a safety-briefing requirement is permanently forbidden"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :override-safety-briefing :effect :propose :confidence 0.99}
+          verdict (gov/check request {} proposal test-store)]
+      (is (true? (:hard? verdict)))
+      (is (some #(= :scope-boundary (:rule %)) (:violations verdict))))))
+
+(deftest test-valid-log-work-assignment
+  (testing "A valid work-assignment log within plausible hours passes the governor"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.9
+                     :task-type :material-handling :hours 8 :location "Line 3"}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (false? (:escalate? verdict)))
+      (is (true? (:ok? verdict))))))
+
+(deftest test-valid-safety-briefing-acknowledgment
+  (testing "A valid safety-briefing acknowledgment passes the governor"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :acknowledge-safety-briefing :effect :propose :confidence 0.95
+                     :briefing-id "brief-42"}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:ok? verdict))))))
+
+(deftest test-valid-task-handoff
+  (testing "A valid, well-formed task handoff passes the governor"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :coordinate-task-handoff :effect :propose :confidence 0.8
+                     :from-task "line-clear-b" :to-practitioner "prac-002"}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:ok? verdict))))))
+
+(deftest test-safety-concern-always-escalates-even-high-confidence
+  (testing "A safety-concern flag ALWAYS escalates, no exceptions, regardless of confidence"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :flag-safety-concern :effect :propose :confidence 0.99
+                     :hazard-type :unguarded-conveyor :description "guard missing"}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:escalate? verdict)))
+      (is (false? (:ok? verdict))))))
+
+(deftest test-low-confidence-escalation
+  (testing "Confidence below the floor (0.6) triggers escalation"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.4 :hours 8}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:escalate? verdict)))
+      (is (false? (:ok? verdict))))))
+
+(deftest test-hours-exceeds-plausible-shift-bound-escalates
+  (testing "Logged hours beyond a plausible shift length (>12h) escalate for human review"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.9 :hours 20}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:escalate? verdict))))))
+
+(deftest test-hours-non-positive-escalates
+  (testing "Non-positive logged hours (data-entry anomaly) escalate for human review"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.9 :hours 0}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (true? (:escalate? verdict))))))
+
+(deftest test-hours-boundary-exactly-max-is-ok
+  (testing "Exactly max-shift-hours (12) is within bounds and does not escalate on that basis"
+    (let [test-store (registered-store)
+          request {:practitioner-id "prac-001"}
+          proposal {:op :log-work-assignment :effect :propose :confidence 0.9 :hours 12}
+          verdict (gov/check request {} proposal test-store)]
+      (is (false? (:hard? verdict)))
+      (is (false? (:escalate? verdict)))
+      (is (true? (:ok? verdict))))))

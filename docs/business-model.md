@@ -9,22 +9,25 @@
 
 ## Customer
 
-- manufacturers
-- production facilities
+- the independent practitioner themself (self-serve work-record tool)
+- manufacturers/production facilities who engage independent labour and want auditable records of assignments and safety acknowledgments
 
 ## Offer
 
-- labour crew staffing
-- line-side support
-- material handling
+- work-assignment logging (task type, hours, location, date)
+- pre-shift PPE/safety-briefing acknowledgment tracking
+- task handoff coordination between workers/shifts
+- safety-concern flagging with always-escalate human review
 
 ## Revenue
 
-- per-crew day rate
-- contract staffing fee
+- per-practitioner subscription
+- per-use logging/record fee
 
 ## Trust Controls
 
-- no work on an unmarked hazardous machine without governor gate
-- safety-plan sign-off required before any crew dispatch
+- this actor never operates manufacturing machinery or equipment directly (policy, not control)
+- this actor never makes a payroll/wage/employment-classification determination
+- a required safety briefing can never be overridden or bypassed
+- flagged safety concerns always escalate to a human, no exceptions
 - task and safety records are auditable, not editable

@@ -1,0 +1,53 @@
+(ns manufacturing-labour.store-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [manufacturing-labour.store :as store]))
+
+(deftest test-create-store
+  (testing "Create a new store"
+    (let [s (store/create-store)]
+      (is (not (nil? s)))
+      (is (satisfies? store/Store s)))))
+
+(deftest test-register-practitioner
+  (testing "Register and retrieve an independent practitioner"
+    (let [s (store/create-store)
+          s' (store/register-practitioner! s "prac-001" {:name "J. Rivera" :status :active})
+          retrieved (store/practitioner s' "prac-001")]
+      (is (= (:name retrieved) "J. Rivera"))
+      (is (= (:status retrieved) :active)))))
+
+(deftest test-register-worksite
+  (testing "Register and retrieve a worksite"
+    (let [s (store/create-store)
+          s' (store/register-worksite! s "site-001" {:name "Line 3 Plant" :hazard-class :general})
+          retrieved (store/worksite s' "site-001")]
+      (is (= (:name retrieved) "Line 3 Plant"))
+      (is (= (:hazard-class retrieved) :general)))))
+
+(deftest test-add-record
+  (testing "Add and retrieve records from audit ledger"
+    (let [s (store/create-store)
+          s' (store/add-record! s :work-assignment {:practitioner-id "prac-001" :hours 8})]
+      (is (= (count (store/records s')) 1))
+      (is (= (:type (first (store/records s'))) :work-assignment)))))
+
+(deftest test-immutability
+  (testing "Store operations return new store instances, never mutate in place"
+    (let [s (store/create-store)
+          s' (store/register-practitioner! s "prac-001" {:name "J. Rivera"})
+          prac-in-s (store/practitioner s "prac-001")
+          prac-in-s' (store/practitioner s' "prac-001")]
+      (is (nil? prac-in-s))
+      (is (not (nil? prac-in-s')))
+      (is (= (:name prac-in-s') "J. Rivera")))))
+
+(deftest test-ledger-append-only-ordering
+  (testing "Ledger preserves append order across multiple records"
+    (let [s (store/create-store)
+          s' (-> s
+                 (store/add-record! :safety-briefing-ack {:practitioner-id "prac-001"})
+                 (store/add-record! :work-assignment {:practitioner-id "prac-001" :hours 8}))
+          recs (store/records s')]
+      (is (= (count recs) 2))
+      (is (= (:type (first recs)) :safety-briefing-ack))
+      (is (= (:type (second recs)) :work-assignment)))))
