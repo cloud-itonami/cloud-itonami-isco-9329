@@ -54,12 +54,21 @@
       true                   (assoc state :phase :commit))))
 
 (defn- commit-node
-  "Commit node: Store the proposal as a coordination record."
+  "Commit node: append the proposal as an immutable coordination
+   record to the store's audit ledger (fixed: previously only updated
+   the ephemeral in-state :records counter and never called
+   `store/add-record!`, so the persistent ledger (`store/records`)
+   was silently never populated -- found during flagship-checklist-
+   item-2 demo-build screening, fixed at the root cause here rather
+   than worked around in the demo. Mirrors the working `commit-node`
+   pattern in `packingfulfillment.actor` (cloud-itonami-isco-9321),
+   the reference implementation this pattern was copied from)."
   [state store-instance]
   (let [proposal (:proposal state)
-        op (:op proposal)]
+        op (:op proposal)
+        store' (store/add-record! store-instance op proposal)]
     (-> state
-        (assoc :phase :complete)
+        (assoc :phase :complete :store store')
         (update :records (fn [r] (conj (or r []) {:recorded true :op op}))))))
 
 (defn- request-approval-node
@@ -112,7 +121,14 @@
     (graph/invoke graph state)))
 
 (defn approve!
-  "Approve a request that was held in :request-approval phase.
-   Human sign-off for escalation invariants."
+  "Approve a request that was held in :request-approval phase. Human
+   sign-off for escalation invariants -- AND appends the approved
+   proposal to the store's audit ledger (fixed: mirrors commit-node's
+   fix and `packingfulfillment.actor/approve!`'s pattern -- previously
+   `store` was accepted but silently unused, so approvals were never
+   persisted either)."
   [state approval-context store]
-  (assoc state :phase :commit :approval approval-context))
+  (let [proposal (:proposal state)
+        op (:op proposal)
+        store' (store/add-record! store op (assoc proposal :approved true :approval approval-context))]
+    (assoc state :phase :commit :approval approval-context :store store')))
