@@ -93,7 +93,7 @@
   Usage: `clojure -M:render-html [out-file]` (default
   `docs/samples/operator-console.html`)."
   (:require [jp-go-dds.skin]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [manufacturing-labour.store :as store]
             [manufacturing-labour.advisor :as advisor]
             [manufacturing-labour.actor :as actor]))
