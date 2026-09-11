@@ -31,7 +31,7 @@
 
   Seed data: practitioner `prac-001` \"J. Rivera\" `{:status :active}`
   is the REAL fixture value already exercised in
-  `test/manufacturing_labour/actor_test.cljc`'s `registered-store`
+  `test/manufacturing_labour/actor_test.cljk`'s `registered-store`
   (used verbatim here, not invented). A second practitioner `prac-002`
   \"Morgan Ito\" and a worksite `site-1` are additional demo entities
   registered here via the store's own real
