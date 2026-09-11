@@ -85,17 +85,17 @@ human-in-the-loop interrupt/resume via checkpointing.
                                            +-> :hold               (:hard? true)
 ```
 
-- `src/manufacturing_labour/store.cljc` — `Store` protocol + `MemStore`:
+- `src/manufacturing_labour/store.cljk` — `Store` protocol + `MemStore`:
   registered practitioners/worksites, committed coordination records, an
   append-only audit ledger.
-- `src/manufacturing_labour/advisor.cljc` — `Advisor` protocol; `mock-advisor`
+- `src/manufacturing_labour/advisor.cljk` — `Advisor` protocol; `mock-advisor`
   (deterministic, default) proposes one of the four coordination operations
   above from a request; `llm-advisor` wraps a `langchain.model/ChatModel` —
   either way the advisor only ever produces a `:propose`-effect proposal,
   never a committed record or an equipment action, and LLM parse failures
   always yield `confidence 0.0` (forces escalation, never fabricated
   confidence).
-- `src/manufacturing_labour/governor.cljc` — `ManufacturingLabourGovernor/check`:
+- `src/manufacturing_labour/governor.cljk` — `ManufacturingLabourGovernor/check`:
   a pure function, wired as its own `:govern` node. Hard invariants
   (unregistered practitioner, a proposal whose `:effect` isn't `:propose`, an
   operation outside the closed known-ops vocabulary, or any proposal touching
@@ -106,7 +106,7 @@ human-in-the-loop interrupt/resume via checkpointing.
   low advisor confidence) always route to `:request-approval` — an
   `interrupt-before` node that the graph checkpoints and only resumes on
   explicit human approval (`actor/approve!`).
-- `src/manufacturing_labour/actor.cljc` — `build-graph`, `run-request!`,
+- `src/manufacturing_labour/actor.cljk` — `build-graph`, `run-request!`,
   `approve!`: the `langgraph.graph/state-graph` wiring itself.
 
 ```bash
