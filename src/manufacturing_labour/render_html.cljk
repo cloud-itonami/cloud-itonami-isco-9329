@@ -90,7 +90,7 @@
       so low-confidence escalation can never be observed in isolation
       via this advisor.
 
-  Usage: `clojure -M:render-html [out-file]` (default
+  Usage: `kbb -M:render-html [out-file]` (default
   `docs/samples/operator-console.html`)."
   (:require [jp-go-dds.skin]
             [kotoba.lang.text :as str]
