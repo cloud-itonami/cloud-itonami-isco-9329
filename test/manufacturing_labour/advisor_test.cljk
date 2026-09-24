@@ -1,5 +1,5 @@
 (ns manufacturing-labour.advisor-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [manufacturing-labour.advisor :as advisor]))
 
 (deftest test-mock-advisor-log-work-assignment
