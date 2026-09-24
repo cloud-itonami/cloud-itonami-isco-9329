@@ -2,7 +2,7 @@
   "Governor tests call ONLY the public API of `manufacturing-labour.governor`
   (`check`) and `manufacturing-labour.store` (`create-store`,
   `register-practitioner!`) — never a private var directly."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [manufacturing-labour.governor :as gov]
             [manufacturing-labour.store :as store]))
 

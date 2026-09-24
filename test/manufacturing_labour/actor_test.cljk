@@ -2,7 +2,7 @@
   "Integration tests: build the real `langgraph.graph` StateGraph and run
   a request through it end-to-end, exercising all three terminal routes
   (:commit / :request-approval / :hold). Public functions only."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [manufacturing-labour.actor :as actor]
             [manufacturing-labour.advisor :as advisor]
             [manufacturing-labour.store :as store]))
